@@ -1,0 +1,19 @@
+[package]
+name = "example-server"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "server"
+path = "src/main.rs"
+
+[dependencies]
+example-common = { path = "../common" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+prost = "0.13"
+axum = "0.6"
+hyper = { version = "0.14", features = ["full"] }
+bytes = "1"
+http = "1"
+
+[build-dependencies]

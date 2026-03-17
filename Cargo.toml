@@ -1,3 +1,6 @@
+[workspace]
+members = ["proto", "example/common", "example/server", "example/client"]
+
 [package]
 name = "grpc-web-rust"
 version = "0.1.0"
