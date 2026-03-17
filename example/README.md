@@ -1,70 +1,67 @@
 # gRPC-Web Example Project
 
-This is an example project demonstrating a gRPC-Web client using Leptos and a simple server.
+This is an example project demonstrating a gRPC-Web client using Leptos, Tonic, and Envoy proxy.
 
 ## Project Structure
 
 - `common/` - Shared proto definitions and message types
-- `server/` - Simple HTTP server (not a full gRPC server, for demo purposes)
-- `client/` - Leptos frontend that communicates with the server
+- `server/` - Simple Tonic gRPC server
+- `client/` - Leptos frontend that communicates with the server via gRPC-web
+- `envoy.yaml` - Envoy proxy configuration for gRPC-web
+- `docker-compose.yaml` - Docker setup for server + envoy
 
 ## Prerequisites
 
 - Rust (latest stable)
 - Node.js (for building the Leptos frontend with wasm-pack)
+- Docker (for running Envoy proxy)
 
 ## Running the Example
 
-### 1. Build the Client (WASM)
+### Option 1: With Docker Compose (Recommended)
 
 ```bash
-# Build the WASM client
+# Build the client WASM first
+cd example/client
+wasm-pack build --target web --out-dir ../../dist
+
+# Start everything with docker-compose
+cd ../..
+docker-compose -f example/docker-compose.yaml up --build
+```
+
+Then open `http://localhost:8081` in your browser.
+
+### Option 2: Manual Setup
+
+#### 1. Build the Client
+
+```bash
 cd example/client
 wasm-pack build --target web --out-dir ../../dist
 ```
 
-### 2. Run the Server
+#### 2. Run the Server
 
 ```bash
-# Start the server (serves both API and static files)
 cargo run -p example-server
 ```
 
-The server will listen on `http://127.0.0.1:50051` and serve:
-- gRPC-web API at `/hello.Greeter/SayHello`
-- Static files from `dist/` directory
-- Index page at `/`
+#### 3. Run Envoy Proxy
 
-Open `http://127.0.0.1:50051` in your browser.
+```bash
+docker run -d -p 8081:8080 -v $PWD/example/envoy.yaml:/etc/envoy/envoy.yaml envoyproxy/envoy
+```
+
+#### 4. Serve Static Files
+
+```bash
+npx http-server dist -p 8080
+```
+
+Then open `http://localhost:8081` in your browser.
 
 ## Testing
-
-### Server Tests
-
-Run server unit tests:
-
-```bash
-cargo test -p example-server
-```
-
-### Client Tests
-
-The client is a WebAssembly application. Tests can be run with:
-
-```bash
-# Run WASM tests
-cd example/client
-wasm-pack test --node
-
-# Or run in browser
-wasm-pack test --chrome
-```
-
-### Common Tests
-
-```bash
-cargo test -p example-common
-```
 
 ### Browser Tests (Chrome + Playwright)
 
@@ -83,41 +80,24 @@ npm install
 npx playwright install chromium
 ```
 
-#### Run Browser Tests
+#### Run Tests
 
 ```bash
 # Build the client first
 cd ../..
 wasm-pack build --target web --out-dir dist
 
-# Run the browser tests (server starts automatically)
+# Run the browser tests
 cd example/client/tests
 npm test
 ```
 
-#### Test Coverage
+## Architecture
 
-- Page loads correctly
-- Input field works
-- Button click works
-- Server response is displayed
-
-## Note
-
-This example demonstrates a simplified setup. The server is a basic HTTP server that responds with string data for demonstration purposes. For a full gRPC-Web experience with proper binary encoding/decoding:
-
-1. Install protobuf compiler: `apt-get install protobuf-compiler`
-2. Enable the build.rs files in each crate to generate code from proto files
-3. Configure proper gRPC-web headers and trailers
-
-## Development
-
-To rebuild after making changes:
-
-```bash
-# Rebuild everything
-cargo build --workspace
-
-# Or rebuild specific crate
-cargo build -p example-client
 ```
+Browser (WASM) -> Envoy (gRPC-web) -> Tonic gRPC Server
+```
+
+- **Client**: Leptos WASM app that uses grpc-web-rust to call gRPC-web
+- **Envoy**: Acts as a proxy, translating gRPC-web requests to gRPC
+- **Server**: Tonic gRPC server written in Rust
