@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>gRPC-Web + Leptos Example</title>
+    <script type="module">
+        import init from './grpc_web_rust.js';
+        
+        async function run() {
+            await init();
+            
+            const { mount_to_body } = await import('./grpc_web_rust.js');
+            
+            if (typeof mount_to_body === 'function') {
+                mount_to_body();
+            }
+        }
+        
+        run().catch(console.error);
+    </script>
+</head>
+<body>
+    <div id="app"></div>
+</body>
+</html>

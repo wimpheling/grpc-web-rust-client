@@ -40,6 +40,9 @@ The client is a Leptos WebAssembly application. To build it:
 cd example/client
 wasm-pack build --target web --out-dir ../../dist
 
+# Copy index.html to dist (required for the app to work)
+cp index.html ../../dist/
+
 # Serve the static files
 # You can use any static file server, for example:
 python3 -m http.server 8080 --directory ../../dist
@@ -76,20 +79,21 @@ wasm-pack test --chrome
 cargo test -p example-common
 ```
 
-### Browser Tests (Lightpanda + Playwright)
+### Browser Tests (Chrome + Playwright)
 
-The browser tests use [Lightpanda](https://github.com/lightpanda-io/browser) headless browser with Playwright. This provides fast, lightweight browser automation for end-to-end testing.
+The browser tests use Chrome with Playwright for end-to-end testing.
 
 #### Prerequisites
 
 - Node.js 18+
-- Lightpanda browser (installed automatically via npm)
+- Chromium browser (installed via Playwright)
 
 #### Install Dependencies
 
 ```bash
 cd example/client/tests
 npm install
+npx playwright install chromium
 ```
 
 #### Run Browser Tests
@@ -98,20 +102,12 @@ npm install
 # Build the client first
 cd ../..
 wasm-pack build --target web --out-dir dist
-
-# Serve the client on port 8080 (in background)
-python3 -m http.server 8080 --directory ../.. &
+cp example/client/index.html dist/
 
 # Run the browser tests
 cd example/client/tests
 npm test
 ```
-
-The test will:
-1. Start the Rust server on port 5001
-2. Start Lightpanda CDP server on port 9222
-3. Run Playwright tests against the client
-4. Clean up all processes
 
 #### Test Coverage
 
