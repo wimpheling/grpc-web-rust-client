@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node tests/browser.test.js",
-    "test:serve": "node tests/browser.test.js --serve"
+    "test": "node browser.test.js",
+    "test:serve": "node browser.test.js --serve"
   },
   "dependencies": {
     "@lightpanda/browser": "^1.2.0",

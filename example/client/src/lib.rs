@@ -51,7 +51,7 @@ pub fn App() -> impl IntoView {
 }
 
 async fn call_greeter(name: &str) -> Result<String, String> {
-    let client = Client::new("http://[::1]:50051")
+    let client = Client::new("http://127.0.0.1:50051")
         .with_content_type(GrpcWebContentType::Binary);
 
     let req = HelloRequest::new(name);
