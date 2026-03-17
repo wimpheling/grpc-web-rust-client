@@ -1,0 +1,14 @@
+{
+  "name": "example-client-tests",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/browser.test.js",
+    "test:serve": "node tests/browser.test.js --serve"
+  },
+  "dependencies": {
+    "@lightpanda/browser": "^1.2.0",
+    "@playwright/test": "^1.40.0"
+  }
+}

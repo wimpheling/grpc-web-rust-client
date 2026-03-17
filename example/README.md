@@ -76,6 +76,50 @@ wasm-pack test --chrome
 cargo test -p example-common
 ```
 
+### Browser Tests (Lightpanda + Playwright)
+
+The browser tests use [Lightpanda](https://github.com/lightpanda-io/browser) headless browser with Playwright. This provides fast, lightweight browser automation for end-to-end testing.
+
+#### Prerequisites
+
+- Node.js 18+
+- Lightpanda browser (installed automatically via npm)
+
+#### Install Dependencies
+
+```bash
+cd example/client/tests
+npm install
+```
+
+#### Run Browser Tests
+
+```bash
+# Build the client first
+cd ../..
+wasm-pack build --target web --out-dir dist
+
+# Serve the client on port 8080 (in background)
+python3 -m http.server 8080 --directory ../.. &
+
+# Run the browser tests
+cd example/client/tests
+npm test
+```
+
+The test will:
+1. Start the Rust server on port 5001
+2. Start Lightpanda CDP server on port 9222
+3. Run Playwright tests against the client
+4. Clean up all processes
+
+#### Test Coverage
+
+- Page loads correctly
+- Input field works
+- Button click works
+- Server response is displayed
+
 ## Note
 
 This example demonstrates a simplified setup. The server is a basic HTTP server that responds with string data for demonstration purposes. For a full gRPC-Web experience with proper binary encoding/decoding:
