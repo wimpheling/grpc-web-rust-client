@@ -8,12 +8,10 @@ name = "server"
 path = "src/main.rs"
 
 [dependencies]
-example-common = { path = "../common" }
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
+tokio-stream = "0.1"
 prost = "0.13"
-axum = "0.6"
-hyper = { version = "0.14", features = ["full"] }
-bytes = "1"
-http = "1"
+tonic = { version = "0.12", features = ["prost"] }
 
 [build-dependencies]
+tonic-build = "0.12"
