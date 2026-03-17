@@ -15,40 +15,27 @@ This is an example project demonstrating a gRPC-Web client using Leptos and a si
 
 ## Running the Example
 
-### 1. Build the Workspace
-
-```bash
-# Build all crates in the workspace
-cargo build --workspace
-```
-
-### 2. Run the Server
-
-```bash
-# Start the server on port 5001
-cargo run -p example-server
-```
-
-The server will listen on `http://127.0.0.1:5001`.
-
-### 3. Build and Serve the Client
-
-The client is a Leptos WebAssembly application. To build it:
+### 1. Build the Client (WASM)
 
 ```bash
 # Build the WASM client
 cd example/client
 wasm-pack build --target web --out-dir ../../dist
-
-# Copy index.html to dist (required for the app to work)
-cp index.html ../../dist/
-
-# Serve the static files
-# You can use any static file server, for example:
-python3 -m http.server 8080 --directory ../../dist
 ```
 
-Then open `http://localhost:8080` in your browser.
+### 2. Run the Server
+
+```bash
+# Start the server (serves both API and static files)
+cargo run -p example-server
+```
+
+The server will listen on `http://127.0.0.1:50051` and serve:
+- gRPC-web API at `/hello.Greeter/SayHello`
+- Static files from `dist/` directory
+- Index page at `/`
+
+Open `http://127.0.0.1:50051` in your browser.
 
 ## Testing
 
@@ -102,9 +89,8 @@ npx playwright install chromium
 # Build the client first
 cd ../..
 wasm-pack build --target web --out-dir dist
-cp example/client/index.html dist/
 
-# Run the browser tests
+# Run the browser tests (server starts automatically)
 cd example/client/tests
 npm test
 ```
