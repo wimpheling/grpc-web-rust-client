@@ -21,8 +21,6 @@ async function startServer() {
     const cargoPath = process.env.CARGO_PATH || '/home/ubuntu/.cargo/bin/cargo';
     serverProc = spawn(cargoPath, ['run', '-p', 'example-server'], {
       cwd: join(__dirname, '../..'),
-      stdio: 'pipe',
-      env: { ...process.env }
     });
 
     serverProc.stdout.on('data', (data) => {
@@ -50,11 +48,7 @@ async function startHttpServer() {
   const pythonPath = process.env.PYTHON_PATH || '/usr/bin/python3';
   
   return new Promise((resolve, reject) => {
-    httpServerProc = spawn(pythonPath, ['-m', 'http.server', '8081'], {
-      cwd: distPath,
-      stdio: 'pipe',
-      env: { ...process.env }
-    });
+    httpServerProc = spawn(pythonPath, ['-m', 'http.server', '8081', '-d', distPath]);
 
     httpServerProc.on('error', reject);
     
@@ -76,9 +70,15 @@ async function runTests() {
     page.on('console', msg => {
       const text = msg.text();
       consoleMessages.push(text);
-      console.log(`[browser console] ${text}`);
+      console.log(`[browser console] [${msg.type()}] ${text}`);
     });
     page.on('pageerror', error => console.log(`[browser pageerror] ${error}`));
+    page.on('requestfailed', request => console.log(`[browser requestfailed] ${request.url()} - ${request.failure().errorText}`));
+    page.on('response', response => {
+      if (!response.ok()) {
+        console.log(`[browser response] ${response.url()} - ${response.status()}`);
+      }
+    });
     
     console.log(`Navigating to ${CLIENT_URL}...`);
     await page.goto(CLIENT_URL, { waitUntil: 'networkidle0', timeout: 30000 });
