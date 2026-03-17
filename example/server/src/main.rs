@@ -1,10 +1,11 @@
 use example_common::hello::{HelloReply, HelloRequest};
 use prost::Message;
 use std::net::SocketAddr;
-use hyper::body::Bytes;
+use hyper::body::{Bytes, Body};
 use axum::{
     response::IntoResponse,
-    http::{Response, StatusCode},
+    http::{StatusCode, header, Response},
+    routing::get,
 };
 
 #[derive(Default, Clone)]
@@ -39,12 +40,52 @@ async fn main() {
         Ok((StatusCode::OK, body_str))
     }
 
+    async fn serve_index() -> impl IntoResponse {
+        let html = std::fs::read_to_string("dist/index.html").unwrap_or_default();
+        Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, "text/html")
+            .body(Body::from(html))
+            .unwrap()
+    }
+
+    async fn serve_static(path: axum::extract::Path<String>) -> Response<Body> {
+        let path = path.0;
+        let full_path = format!("dist/{}", path);
+        
+        if let Ok(contents) = std::fs::read(&full_path) {
+            let mime = if path.ends_with(".wasm") {
+                "application/wasm"
+            } else if path.ends_with(".js") {
+                "application/javascript"
+            } else if path.ends_with(".html") {
+                "text/html"
+            } else {
+                "application/octet-stream"
+            };
+            
+            return Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, mime)
+                .body(Body::from(contents))
+                .unwrap();
+        }
+        
+        Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body(Body::from("File not found"))
+            .unwrap()
+    }
+
     let app = axum::Router::new()
         .route("/hello.Greeter/SayHello", axum::routing::post(handle_hello))
+        .route("/", get(serve_index))
+        .route("/:file", get(serve_static))
         .with_state(greeter);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 50051));
     println!("Greeter server listening on {}", addr);
+    println!("Serving static files from ../dist");
 
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
