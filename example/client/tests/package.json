@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "test": "node browser.test.js",
-    "test:serve": "node browser.test.js --serve"
+    "test:serve": "node browser.test.js --serve",
+    "install-browsers": "playwright install chromium"
   },
   "dependencies": {
-    "@lightpanda/browser": "^1.2.0",
     "@playwright/test": "^1.40.0"
   }
 }

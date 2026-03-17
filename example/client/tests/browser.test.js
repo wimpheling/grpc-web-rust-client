@@ -1,6 +1,5 @@
 import { chromium } from '@playwright/test';
-import { lightpanda } from '@lightpanda/browser';
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -8,9 +7,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const SERVER_URL = 'http://127.0.0.1:50051';
-const CLIENT_URL = 'http://127.0.0.1:8080';
+const CLIENT_URL = 'http://127.0.0.1:8081';
 
-let lightpandaProc = null;
 let serverProc = null;
 let httpServerProc = null;
 
@@ -20,10 +18,11 @@ async function sleep(ms) {
 
 async function startServer() {
   return new Promise((resolve, reject) => {
-    serverProc = spawn('cargo', ['run', '-p', 'example-server'], {
+    const cargoPath = process.env.CARGO_PATH || '/home/ubuntu/.cargo/bin/cargo';
+    serverProc = spawn(cargoPath, ['run', '-p', 'example-server'], {
       cwd: join(__dirname, '../..'),
-      shell: true,
-      stdio: 'pipe'
+      stdio: 'pipe',
+      env: { ...process.env }
     });
 
     serverProc.stdout.on('data', (data) => {
@@ -40,7 +39,7 @@ async function startServer() {
 
     serverProc.on('error', reject);
     
-    setTimeout(() => resolve(), 8000);
+    setTimeout(() => resolve(), 10000);
   });
 }
 
@@ -48,11 +47,13 @@ async function startHttpServer() {
   const distPath = join(__dirname, '../../../dist');
   console.log(`Starting HTTP server from: ${distPath}`);
   
+  const pythonPath = process.env.PYTHON_PATH || '/usr/bin/python3';
+  
   return new Promise((resolve, reject) => {
-    httpServerProc = spawn('python3', ['-m', 'http.server', '8080'], {
+    httpServerProc = spawn(pythonPath, ['-m', 'http.server', '8081'], {
       cwd: distPath,
-      shell: true,
-      stdio: 'pipe'
+      stdio: 'pipe',
+      env: { ...process.env }
     });
 
     httpServerProc.on('error', reject);
@@ -61,26 +62,12 @@ async function startHttpServer() {
   });
 }
 
-async function startLightpanda() {
-  const options = {
-    host: '127.0.0.1',
-    port: 9222,
-    headless: true,
-  };
-  
-  console.log('Starting Lightpanda CDP server...');
-  lightpandaProc = await lightpanda.serve(options);
-  console.log('Lightpanda CDP server started on port 9222');
-  
-  await sleep(1000);
-}
-
 async function runTests() {
   let browser;
   
   try {
-    console.log('Connecting to Lightpanda via Playwright...');
-    browser = await chromium.connectOverCDP('ws://127.0.0.1:9222');
+    console.log('Launching Chrome...');
+    browser = await chromium.launch({ headless: true });
     
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -94,13 +81,13 @@ async function runTests() {
     page.on('pageerror', error => console.log(`[browser pageerror] ${error}`));
     
     console.log(`Navigating to ${CLIENT_URL}...`);
-    await page.goto(CLIENT_URL, { waitUntil: 'load', timeout: 30000 });
+    await page.goto(CLIENT_URL, { waitUntil: 'networkidle0', timeout: 30000 });
     
     const title = await page.title();
     console.log(`Page title: ${title}`);
     
-    // Wait for WASM to potentially initialize
-    await sleep(3000);
+    // Wait for WASM to initialize
+    await sleep(2000);
     
     // Check what's on the page
     const bodyContent = await page.content();
@@ -110,39 +97,35 @@ async function runTests() {
     const h1Count = await page.locator('h1').count();
     console.log(`Number of h1 elements: ${h1Count}`);
     
-    // If h1 exists, check its content
-    if (h1Count > 0) {
-      const heading = await page.locator('h1').first().textContent();
-      console.log(`Heading: ${heading}`);
-      
-      if (heading === 'gRPC-Web + Leptos Example') {
-        console.log('✓ Test passed: Page loaded with correct heading');
-        
-        // Try more interaction tests
-        await page.waitForSelector('input[type="text"]', { timeout: 5000 });
-        console.log('Input field found');
-        
-        await page.fill('input[type="text"]', 'TestUser');
-        console.log('Entered text in input');
-        
-        await page.click('button');
-        console.log('Clicked submit button');
-        
-        await sleep(2000);
-        
-        const responseText = await page.locator('p').first().textContent();
-        console.log(`Response text: ${responseText}`);
-        
-        console.log('\n✅ All tests completed successfully!');
-      } else {
-        console.log(`⚠ Heading is: "${heading}"`);
-        console.log('\n✅ Page loaded (heading mismatch)');
-      }
-    } else {
-      console.log('⚠ No h1 element found - WASM may not have initialized');
-      console.log('Console messages:', consoleMessages);
-      console.log('\n✅ Page loaded (WASM not rendering)');
+    if (h1Count === 0) {
+      throw new Error('No h1 element found - WASM may not have initialized');
     }
+    
+    const heading = await page.locator('h1').first().textContent();
+    console.log(`Heading: ${heading}`);
+    
+    if (heading !== 'gRPC-Web + Leptos Example') {
+      throw new Error(`Expected heading "gRPC-Web + Leptos Example", got "${heading}"`);
+    }
+    
+    console.log('✓ Test passed: Page loaded with correct heading');
+    
+    // Test input and button
+    await page.waitForSelector('input[type="text"]', { timeout: 5000 });
+    console.log('Input field found');
+    
+    await page.fill('input[type="text"]', 'TestUser');
+    console.log('Entered text in input');
+    
+    await page.click('button');
+    console.log('Clicked submit button');
+    
+    await sleep(2000);
+    
+    const responseText = await page.locator('p').first().textContent();
+    console.log(`Response text: ${responseText}`);
+    
+    console.log('\n✅ All tests completed successfully!');
     
   } catch (error) {
     console.error('\n❌ Test failed:', error.message);
@@ -156,11 +139,6 @@ async function runTests() {
 
 async function cleanup() {
   console.log('\nCleaning up...');
-  
-  if (lightpandaProc) {
-    lightpandaProc.kill();
-    console.log('Lightpanda stopped');
-  }
   
   if (serverProc) {
     serverProc.kill();
@@ -180,9 +158,6 @@ async function main() {
     
     console.log('Starting HTTP server for client...');
     await startHttpServer();
-    
-    console.log('Starting Lightpanda...');
-    await startLightpanda();
     
     console.log('Running tests...');
     await runTests();
