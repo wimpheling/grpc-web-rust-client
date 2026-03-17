@@ -6,10 +6,12 @@ use futures::Stream;
 
 use crate::encoding::{decode_grpc_frame, parse_grpc_web_trailers, GrpcWebContentType, encode_grpc_frame};
 use crate::error::{Error, Result, StatusCode};
+use crate::metadata::Metadata;
 
 pub struct GrpcWebTransport {
     base_url: String,
     content_type: GrpcWebContentType,
+    default_metadata: Metadata,
 }
 
 impl GrpcWebTransport {
@@ -17,6 +19,7 @@ impl GrpcWebTransport {
         Self {
             base_url: base_url.into(),
             content_type: GrpcWebContentType::Binary,
+            default_metadata: Metadata::new(),
         }
     }
 
@@ -25,14 +28,32 @@ impl GrpcWebTransport {
         self
     }
 
+    pub fn with_metadata(mut self, metadata: Metadata) -> Self {
+        self.default_metadata = metadata;
+        self
+    }
+
     pub async fn unary<T, R>(&self, service: &str, method: &str, request: T) -> Result<R>
     where
         T: prost::Message,
         R: prost::Message + Default,
     {
+        self.unary_with_metadata(service, method, request, Metadata::new()).await
+    }
+
+    pub async fn unary_with_metadata<T, R, M>(&self, service: &str, method: &str, request: T, metadata: M) -> Result<R>
+    where
+        T: prost::Message,
+        R: prost::Message + Default,
+        M: Into<Metadata>,
+    {
         let body = request.encode_to_vec();
+        let mut merged_metadata = self.default_metadata.clone();
+        for (k, v) in metadata.into().iter() {
+            merged_metadata.insert(k, v);
+        }
         let response = self
-            .send_request(service, method, body)
+            .send_request(service, method, body, merged_metadata)
             .await?;
 
         self.parse_unary_response(response).await
@@ -48,14 +69,34 @@ impl GrpcWebTransport {
         T: prost::Message,
         R: prost::Message + Default + 'static,
     {
+        self.server_streaming_with_metadata(service, method, request, Metadata::new())
+    }
+
+    pub fn server_streaming_with_metadata<T, R, M>(
+        &self,
+        service: &str,
+        method: &str,
+        request: T,
+        metadata: M,
+    ) -> Pin<Box<dyn Stream<Item = Result<R>> + '_>>
+    where
+        T: prost::Message,
+        R: prost::Message + Default + 'static,
+        M: Into<Metadata>,
+    {
         let base_url = self.base_url.clone();
         let content_type = self.content_type;
+        let mut merged_metadata = self.default_metadata.clone();
+        for (k, v) in metadata.into().iter() {
+            merged_metadata.insert(k, v);
+        }
         let service = service.to_string();
         let method = method.to_string();
         let body = request.encode_to_vec();
+        let metadata = merged_metadata;
 
         let future = async move {
-            send_streaming_request::<R>(base_url, &service, &method, &body, content_type).await
+            send_streaming_request::<R>(base_url, &service, &method, &body, content_type, metadata).await
         };
 
         Box::pin(futures::stream::once(future)) as Pin<Box<dyn Stream<Item = Result<R>> + '_>>
@@ -66,6 +107,7 @@ impl GrpcWebTransport {
         service: &str,
         method: &str,
         body: Vec<u8>,
+        metadata: Metadata,
     ) -> Result<Vec<u8>> {
         let window = web_sys::window().ok_or_else(|| Error::transport("No window object"))?;
 
@@ -79,12 +121,20 @@ impl GrpcWebTransport {
         opts.set_body(&JsValue::from_str(&encoded_body));
 
         let headers = Headers::new().map_err(|_| Error::transport("Headers error"))?;
+        
         headers.set("Content-Type", self.content_type.as_str())
             .map_err(|_| Error::transport("Failed to set Content-Type header"))?;
         headers.set("X-Grpc-Web", "1")
             .map_err(|_| Error::transport("Failed to set X-Grpc-Web header"))?;
         headers.set("Accept", self.content_type.as_str())
             .map_err(|_| Error::transport("Failed to set Accept header"))?;
+
+        for (key, value) in metadata.iter() {
+            if !key.starts_with("content-") && !key.eq_ignore_ascii_case("content-type") {
+                let header_name = format!("grpc-{}", key);
+                let _ = headers.set(&header_name, value);
+            }
+        }
 
         opts.set_headers(&headers);
 
@@ -151,6 +201,7 @@ async fn send_streaming_request<R>(
     method: &str,
     body: &[u8],
     content_type: GrpcWebContentType,
+    metadata: Metadata,
 ) -> Result<R>
 where
     R: prost::Message + Default + 'static,
@@ -172,6 +223,13 @@ where
         .map_err(|_| Error::transport("Failed to set X-Grpc-Web header"))?;
     headers.set("Accept", content_type.as_str())
         .map_err(|_| Error::transport("Failed to set Accept header"))?;
+
+    for (key, value) in metadata.iter() {
+        if !key.starts_with("content-") && !key.eq_ignore_ascii_case("content-type") {
+            let header_name = format!("grpc-{}", key);
+            let _ = headers.set(&header_name, value);
+        }
+    }
 
     opts.set_headers(&headers);
 
