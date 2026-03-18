@@ -1,5 +1,5 @@
 [workspace]
-members = ["proto", "example/common", "example/server", "example/client"]
+members = ["proto", "example/types", "example/common", "example/server", "example/client"]
 
 [package]
 name = "grpc-web-rust"

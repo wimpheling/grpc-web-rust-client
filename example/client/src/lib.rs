@@ -1,8 +1,4 @@
-pub mod hello {
-    include!("hello.rs");
-}
-
-use hello::{HelloRequest, HelloReply};
+use example_types::{HelloRequest, HelloReply};
 use leptos::*;
 use grpc_web_rust::{Client, GrpcWebContentType};
 use prost::Message;
@@ -51,7 +47,7 @@ pub fn App() -> impl IntoView {
 }
 
 async fn call_greeter(name: &str) -> Result<String, String> {
-    let client = Client::new("http://127.0.0.1:50051")
+    let client = Client::new("http://localhost:8081")
         .with_content_type(GrpcWebContentType::Binary);
 
     let req = HelloRequest::new(name);
