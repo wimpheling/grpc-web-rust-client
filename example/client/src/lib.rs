@@ -1,7 +1,13 @@
 use example_types::{HelloRequest, HelloReply};
-use leptos::*;
 use grpc_web_rust::{Client, GrpcWebContentType};
-use prost::Message;
+use leptos::*;
+use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen(start)]
+pub fn start() {
+    console_error_panic_hook::set_once();
+    leptos::mount_to_body(App);
+}
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -47,8 +53,6 @@ pub fn App() -> impl IntoView {
 }
 
 async fn call_greeter(name: &str) -> Result<String, String> {
-    use prost::Message;
-    
     let client = Client::new("http://localhost:8081")
         .with_content_type(GrpcWebContentType::Binary);
 
@@ -60,8 +64,4 @@ async fn call_greeter(name: &str) -> Result<String, String> {
         .map_err(|e: grpc_web_rust::Error| e.to_string())?;
 
     Ok(response.message)
-}
-
-fn main() {
-    mount_to_body(App);
 }

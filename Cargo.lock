@@ -249,6 +249,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "console_error_panic_hook"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
+dependencies = [
+ "cfg-if",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "const_format"
 version = "0.2.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -351,6 +361,7 @@ name = "example-client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "console_error_panic_hook",
  "example-types",
  "grpc-web-rust",
  "js-sys",
@@ -1017,6 +1028,7 @@ dependencies = [
  "tracing",
  "typed-builder",
  "typed-builder-macro",
+ "wasm-bindgen",
  "web-sys",
 ]
 
@@ -1114,6 +1126,7 @@ dependencies = [
  "cfg-if",
  "futures",
  "indexmap 2.13.0",
+ "js-sys",
  "oco_ref",
  "paste",
  "pin-project",
@@ -1125,7 +1138,9 @@ dependencies = [
  "slotmap",
  "thiserror 1.0.69",
  "tracing",
+ "wasm-bindgen",
  "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]

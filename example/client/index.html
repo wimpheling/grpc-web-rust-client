@@ -8,12 +8,12 @@
         import init from './example_client.js';
         
         async function run() {
-            await init();
-            
-            const { mount_to_body } = await import('./example_client.js');
-            
-            if (typeof mount_to_body === 'function') {
-                mount_to_body();
+            console.log('Starting WASM initialization...');
+            try {
+                await init();
+                console.log('WASM initialized');
+            } catch (e) {
+                console.error('Error:', e);
             }
         }
         

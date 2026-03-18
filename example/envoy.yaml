@@ -41,7 +41,7 @@ static_resources:
   clusters:
     - name: greeter_service
       connect_timeout: 5s
-      type: static
+      type: strict_dns
       lb_policy: ROUND_ROBIN
       typed_extension_protocol_options:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
@@ -55,5 +55,5 @@ static_resources:
               - endpoint:
                   address:
                     socket_address:
-                      address: 172.18.0.2
+                      address: server
                       port_value: 50051
