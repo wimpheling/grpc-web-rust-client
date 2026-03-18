@@ -6,7 +6,6 @@ services:
       - "9901:9901"
     volumes:
       - ./envoy.yaml:/etc/envoy/envoy.yaml
-    network_mode: host
     depends_on:
       - server
 
