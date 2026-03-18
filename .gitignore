@@ -14,3 +14,5 @@
 *.rs.bak
 
 example/client/tests/test-results/
+example/server/src/hello.rs
+example/types/src/hello.rs

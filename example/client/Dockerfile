@@ -7,7 +7,6 @@ WORKDIR /app
 
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
-COPY proto ./proto
 COPY example ./example
 
 RUN wasm-pack build --target web --out-dir /app/dist/example_client --release example/client
