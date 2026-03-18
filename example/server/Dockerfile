@@ -7,6 +7,7 @@ COPY src ./src
 COPY example/server ./example/server
 COPY example/common ./example/common
 COPY example/types ./example/types
+COPY example/client ./example/client
 COPY proto ./proto
 
 RUN cargo build --release -p example-server
