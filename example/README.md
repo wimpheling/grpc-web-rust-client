@@ -28,8 +28,10 @@ These files are gitignored and regenerated on every build.
 
 ```bash
 # Build and run everything with Docker Compose
+# Note: BuildKit is enabled by default in Docker Compose v2.1.0+.
+# The Dockerfiles use cache mounts for faster builds.
 cd example
-docker compose up --build
+DOCKER_BUILDKIT=1 docker compose up --build
 ```
 
 Then open `http://localhost:8082` in your browser.
@@ -38,6 +40,24 @@ That's it! Docker Compose will:
 1. Build and start the Tonic gRPC server on port 50051
 2. Start Envoy proxy on port 8081 (translates gRPC-web to gRPC)
 3. Build the Leptos WASM client and serve it with nginx on port 8082
+
+## Build Performance
+
+The Dockerfiles are optimized with BuildKit cache mounts to speed up repeated builds:
+
+- **Cargo registry cache**: Persisted at `/usr/local/cargo/registry`
+- **Git dependencies cache**: Persisted at `/usr/local/cargo/git`
+- **Build artifact cache**: Persisted at `/app/target`
+
+These caches are reused between builds, significantly reducing build times after the initial build. The first build will download dependencies and compile from scratch, but subsequent builds will be much faster.
+
+To ensure BuildKit is enabled (required for cache mounts):
+
+```bash
+export DOCKER_BUILDKIT=1
+```
+
+Docker Compose v2.1.0+ enables BuildKit by default.
 
 ## Architecture
 
@@ -51,11 +71,11 @@ Browser (WASM, served on :8082) -> Envoy (gRPC-web, :8081) -> Tonic gRPC Server 
 
 ## Running Tests
 
-1. Start the services with Docker Compose:
-   ```bash
-   cd example
-   docker compose up --build -d
-   ```
+1. Start the services with Docker Compose (BuildKit enabled for cache mounts):
+    ```bash
+    cd example
+    DOCKER_BUILDKIT=1 docker compose up --build -d
+    ```
 
 2. Run the tests:
    ```bash
