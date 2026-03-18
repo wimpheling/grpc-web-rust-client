@@ -8,48 +8,35 @@ This is an example project demonstrating a gRPC-Web client using Leptos, Tonic, 
 - `server/` - Tonic gRPC server
 - `client/` - Leptos frontend that communicates with the server via gRPC-web
 - `envoy.yaml` - Envoy proxy configuration for gRPC-web
-- `docker-compose.yaml` - Docker setup for server + envoy
+- `docker-compose.yaml` - Docker setup for server, envoy, and frontend
 
 ## Prerequisites
 
 - Rust (latest stable)
-- Node.js (for building the Leptos frontend with wasm-pack)
 - Docker & Docker Compose
-- wasm-pack: `cargo install wasm-pack`
-- Protobuf compiler: `sudo apt install protobuf-compiler`
 
 ## Quick Start
 
 ```bash
-# Generate protobuf types
-cargo build -p example-types
-
-# Build the Leptos WASM client
-cd example/client
-wasm-pack build --target web --out-dir ../../dist/example_client --release
-cd ../..
-
-# Start Envoy + gRPC server with Docker Compose
+# Build and run everything with Docker Compose
 cd example
 docker compose up --build
 ```
 
-Then in a separate terminal, serve the frontend:
-```bash
-cd dist
-python3 -m http.server 8082
-```
+Then open `http://localhost:8082` in your browser.
 
-Open `http://localhost:8082` in your browser.
+That's it! Docker Compose will:
+1. Build and start the Tonic gRPC server on port 50051
+2. Start Envoy proxy on port 8081 (translates gRPC-web to gRPC)
+3. Build the Leptos WASM client and serve it with nginx on port 8082
 
 ## Architecture
 
 ```
-Browser (WASM) -> Envoy (gRPC-web, port 8081) -> Tonic gRPC Server (port 50051)
-Browser loads Leptos app from HTTP server (port 8082)
+Browser (WASM, served on :8082) -> Envoy (gRPC-web, :8081) -> Tonic gRPC Server (:50051)
 ```
 
-- **Client**: Leptos WASM app using grpc-web-rust
+- **Frontend**: Leptos WASM app built with wasm-pack, served by nginx
 - **Envoy**: Translates gRPC-web requests to gRPC
 - **Server**: Tonic gRPC server written in Rust
 
