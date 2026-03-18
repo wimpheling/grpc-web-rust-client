@@ -12,3 +12,5 @@
 **/target
 **/dist
 *.rs.bak
+
+example/client/tests/test-results/

@@ -42,14 +42,23 @@ Browser (WASM, served on :8082) -> Envoy (gRPC-web, :8081) -> Tonic gRPC Server 
 
 ## Running Tests
 
-```bash
-cd example/client/tests
-npm install
-npm test
-```
+1. Start the services with Docker Compose:
+   ```bash
+   cd example
+   docker compose up --build -d
+   ```
 
-The test will:
-1. Start Envoy and the gRPC server via docker-compose
-2. Build the WASM client
-3. Serve the frontend on port 8082
-4. Use Playwright to verify the gRPC-web call works correctly
+2. Run the tests:
+   ```bash
+   cd example/client/tests
+   npm install
+   npx playwright install chromium
+   npm test
+   ```
+
+3. When done, stop the services:
+   ```bash
+   docker compose down
+   ```
+
+The test uses Playwright to verify the gRPC-web call works correctly in the browser.

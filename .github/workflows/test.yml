@@ -1,0 +1,42 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start services
+        run: docker compose up --build -d
+        working-directory: example
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install test dependencies
+        working-directory: example/client/tests
+        run: |
+          npm install
+          npx playwright install chromium --with-deps
+
+      - name: Wait for frontend
+        run: |
+          for i in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:8082 && break
+            sleep 1
+          done
+
+      - name: Run tests
+        working-directory: example/client/tests
+        run: npm test
+
+      - name: Stop services
+        if: always()
+        run: docker compose down
+        working-directory: example
