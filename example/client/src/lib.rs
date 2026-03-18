@@ -27,7 +27,20 @@ pub fn App() -> impl IntoView {
             let result = call_greeter(&name).await;
 
             match result {
-                Ok(msg) => set_response.set(msg),
+                Ok(msg) => {
+                    set_response.set(msg.clone());
+                    // Write response to DOM directly for test verification
+                    if let Some(window) = web_sys::window() {
+                        if let Some(document) = window.document() {
+                            if let Some(body) = document.body() {
+                                let div = document.create_element("div").unwrap();
+                                div.set_id("grpc-result");
+                                div.set_text_content(Some(&msg));
+                                let _ = body.append_child(&div);
+                            }
+                        }
+                    }
+                }
                 Err(e) => set_error.set(e),
             }
         });

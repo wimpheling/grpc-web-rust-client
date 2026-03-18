@@ -74,9 +74,18 @@ impl GrpcWebTransport {
         opts.set_method("POST");
         opts.set_mode(RequestMode::Cors);
 
-        let encoded_body = encode_grpc_web_body(&body);
-        
-        opts.set_body(&JsValue::from_str(&encoded_body));
+        let frame = encode_grpc_frame(&body);
+
+        match self.content_type {
+            GrpcWebContentType::Binary => {
+                let uint8_array = js_sys::Uint8Array::from(frame.as_slice());
+                opts.set_body(&JsValue::from(uint8_array));
+            }
+            GrpcWebContentType::Text => {
+                let encoded = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &frame);
+                opts.set_body(&JsValue::from_str(&encoded));
+            }
+        }
 
         let headers = Headers::new().map_err(|_| Error::transport("Headers error"))?;
         headers.set("Content-Type", self.content_type.as_str())
@@ -113,10 +122,17 @@ impl GrpcWebTransport {
             .await
             .map_err(|e| Error::transport(format!("Failed to get body: {:?}", e)))?;
 
+        if let Some(array_buffer) = body_value.dyn_ref::<js_sys::ArrayBuffer>() {
+            let uint8_array = js_sys::Uint8Array::new(array_buffer);
+            let mut full_body = vec![0u8; uint8_array.length() as usize];
+            uint8_array.copy_to(&mut full_body);
+            return Ok(full_body);
+        }
+
         let js_array = js_sys::Array::from(&body_value);
         let mut full_body = Vec::new();
         for elem in js_array.iter() {
-            let uint8_array = js_sys::Uint8Array::from(elem);
+            let uint8_array = js_sys::Uint8Array::new(&elem);
             let mut chunk = vec![0u8; uint8_array.length() as usize];
             uint8_array.copy_to(&mut chunk);
             full_body.extend(chunk);
@@ -126,7 +142,10 @@ impl GrpcWebTransport {
     }
 
     async fn parse_unary_response<R: prost::Message + Default>(&self, body: Vec<u8>) -> Result<R> {
-        let decoded_body = decode_grpc_web_body(&body)?;
+        let decoded_body = match self.content_type {
+            GrpcWebContentType::Binary => body,
+            GrpcWebContentType::Text => decode_grpc_web_body(&body)?,
+        };
 
         let (message_data, trailing) = split_message_and_trailers(&decoded_body)?;
 
@@ -162,8 +181,18 @@ where
     opts.set_method("POST");
     opts.set_mode(RequestMode::Cors);
 
-    let encoded_body = encode_grpc_web_body(body);
-    opts.set_body(&JsValue::from_str(&encoded_body));
+    let frame = encode_grpc_frame(body);
+
+    match content_type {
+        GrpcWebContentType::Binary => {
+            let uint8_array = js_sys::Uint8Array::from(frame.as_slice());
+            opts.set_body(&JsValue::from(uint8_array));
+        }
+        GrpcWebContentType::Text => {
+            let encoded = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &frame);
+            opts.set_body(&JsValue::from_str(&encoded));
+        }
+    }
 
     let headers = Headers::new().map_err(|_| Error::transport("Headers error"))?;
     headers.set("Content-Type", content_type.as_str())
@@ -200,16 +229,27 @@ where
         .await
         .map_err(|e| Error::transport(format!("Failed to get body: {:?}", e)))?;
 
-    let js_array = js_sys::Array::from(&body_value);
-    let mut full_body = Vec::new();
-    for elem in js_array.iter() {
-        let uint8_array = js_sys::Uint8Array::from(elem);
-        let mut chunk = vec![0u8; uint8_array.length() as usize];
-        uint8_array.copy_to(&mut chunk);
-        full_body.extend(chunk);
-    }
+    let full_body = if let Some(array_buffer) = body_value.dyn_ref::<js_sys::ArrayBuffer>() {
+        let uint8_array = js_sys::Uint8Array::new(array_buffer);
+        let mut buf = vec![0u8; uint8_array.length() as usize];
+        uint8_array.copy_to(&mut buf);
+        buf
+    } else {
+        let js_array = js_sys::Array::from(&body_value);
+        let mut buf = Vec::new();
+        for elem in js_array.iter() {
+            let uint8_array = js_sys::Uint8Array::new(&elem);
+            let mut chunk = vec![0u8; uint8_array.length() as usize];
+            uint8_array.copy_to(&mut chunk);
+            buf.extend(chunk);
+        }
+        buf
+    };
 
-    let decoded_body = decode_grpc_web_body(&full_body)?;
+    let decoded_body = match content_type {
+        GrpcWebContentType::Binary => full_body,
+        GrpcWebContentType::Text => decode_grpc_web_body(&full_body)?,
+    };
     let (message_data, trailing) = split_message_and_trailers(&decoded_body)?;
 
     if !trailing.is_empty() {
@@ -226,11 +266,6 @@ where
     Ok(response)
 }
 
-fn encode_grpc_web_body(body: &[u8]) -> String {
-    let frame = encode_grpc_frame(body);
-    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &frame)
-}
-
 fn decode_grpc_web_body(body: &[u8]) -> Result<Vec<u8>> {
     base64::Engine::decode(&base64::engine::general_purpose::STANDARD, body)
         .map_err(|e| Error::decoding(format!("Base64 decode error: {}", e)))
@@ -241,26 +276,12 @@ fn split_message_and_trailers(data: &[u8]) -> Result<(&[u8], &[u8])> {
         return Err(Error::invalid_response("Response too short"));
     }
 
-    let mut pos = 0;
-    let mut message_end = 0;
+    let length = u32::from_be_bytes([data[1], data[2], data[3], data[4]]) as usize;
 
-    while pos + 5 <= data.len() {
-        let length = u32::from_be_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]) as usize;
-        if pos + 5 + length > data.len() {
-            break;
-        }
-        
-        message_end = pos + 5 + length;
-        pos = message_end;
+    if data.len() < 5 + length {
+        return Err(Error::invalid_response("First frame incomplete"));
     }
 
-    if message_end == 0 {
-        return Err(Error::invalid_response("No complete frames found"));
-    }
-
-    if message_end >= data.len() {
-        return Ok((&data[..message_end], &[]));
-    }
-
+    let message_end = 5 + length;
     Ok((&data[..message_end], &data[message_end..]))
 }
