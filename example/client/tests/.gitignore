@@ -1,0 +1,11 @@
+node_modules/
+dist/
+target/
+*.wasm
+*.js
+*.bg.wasm
+*.wasm.d.ts
+*.rs
+Cargo.lock
+.DS_Store
+*.log

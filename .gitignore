@@ -1,1 +1,16 @@
 /target
+/node_modules
+/dist
+*.wasm
+*.bg.wasm
+*.d.ts
+.DS_Store
+*.log
+
+# Generated Rust files (but not manually written source files)
+# Use specific patterns to avoid ignoring source files
+**/target
+**/dist
+*.rs.bak
+
+example/client/tests/test-results/

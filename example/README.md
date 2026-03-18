@@ -1,0 +1,64 @@
+# gRPC-Web Example Project
+
+This is an example project demonstrating a gRPC-Web client using Leptos, Tonic, and Envoy proxy.
+
+## Project Structure
+
+- `types/` - Protobuf types generated from proto files
+- `server/` - Tonic gRPC server
+- `client/` - Leptos frontend that communicates with the server via gRPC-web
+- `envoy.yaml` - Envoy proxy configuration for gRPC-web
+- `docker-compose.yaml` - Docker setup for server, envoy, and frontend
+
+## Prerequisites
+
+- Rust (latest stable)
+- Docker & Docker Compose
+
+## Quick Start
+
+```bash
+# Build and run everything with Docker Compose
+cd example
+docker compose up --build
+```
+
+Then open `http://localhost:8082` in your browser.
+
+That's it! Docker Compose will:
+1. Build and start the Tonic gRPC server on port 50051
+2. Start Envoy proxy on port 8081 (translates gRPC-web to gRPC)
+3. Build the Leptos WASM client and serve it with nginx on port 8082
+
+## Architecture
+
+```
+Browser (WASM, served on :8082) -> Envoy (gRPC-web, :8081) -> Tonic gRPC Server (:50051)
+```
+
+- **Frontend**: Leptos WASM app built with wasm-pack, served by nginx
+- **Envoy**: Translates gRPC-web requests to gRPC
+- **Server**: Tonic gRPC server written in Rust
+
+## Running Tests
+
+1. Start the services with Docker Compose:
+   ```bash
+   cd example
+   docker compose up --build -d
+   ```
+
+2. Run the tests:
+   ```bash
+   cd example/client/tests
+   npm install
+   npx playwright install chromium
+   npm test
+   ```
+
+3. When done, stop the services:
+   ```bash
+   docker compose down
+   ```
+
+The test uses Playwright to verify the gRPC-web call works correctly in the browser.

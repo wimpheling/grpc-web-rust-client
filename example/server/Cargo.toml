@@ -1,0 +1,17 @@
+[package]
+name = "example-server"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "server"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
+tokio-stream = "0.1"
+prost = "0.13"
+tonic = { version = "0.12", features = ["prost"] }
+
+[build-dependencies]
+tonic-build = "0.12"

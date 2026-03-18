@@ -1,0 +1,15 @@
+{
+  "name": "example-client",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "example_client_bg.wasm",
+    "example_client.js",
+    "example_client.d.ts"
+  ],
+  "main": "example_client.js",
+  "types": "example_client.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

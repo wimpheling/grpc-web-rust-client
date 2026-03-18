@@ -1,0 +1,11 @@
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let proto_path = "../../proto/src/hello.proto";
+    println!("cargo:rerun-if-changed={}", proto_path);
+
+    tonic_build::configure()
+        .build_server(true)
+        .compile_protos(&[proto_path], &["../../proto/src"])
+        .unwrap();
+
+    Ok(())
+}

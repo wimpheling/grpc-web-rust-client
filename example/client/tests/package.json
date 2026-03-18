@@ -1,0 +1,14 @@
+{
+  "name": "example-client-tests",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node browser.test.js",
+    "test:serve": "node browser.test.js --serve",
+    "install-browsers": "playwright install chromium"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.40.0"
+  }
+}

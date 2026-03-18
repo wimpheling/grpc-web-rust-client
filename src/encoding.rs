@@ -34,6 +34,7 @@ impl<T: Message + Default + 'static> ProstMessageExt for T {}
 pub fn encode_grpc_frame(message: &[u8]) -> Vec<u8> {
     let length = message.len() as u32;
     let mut frame = Vec::with_capacity(5 + message.len());
+    frame.push(0); // compression flag: no compression
     frame.extend_from_slice(&length.to_be_bytes());
     frame.extend_from_slice(message);
     frame
@@ -46,7 +47,8 @@ pub fn decode_grpc_frame(data: &[u8]) -> Result<(&[u8], &[u8])> {
             data.len()
         )));
     }
-    let length = u32::from_be_bytes([data[0], data[1], data[2], data[3]]) as usize;
+    // Skip compression flag byte (data[0])
+    let length = u32::from_be_bytes([data[1], data[2], data[3], data[4]]) as usize;
     if data.len() < 5 + length {
         return Err(Error::decoding(format!(
             "Frame incomplete: expected {} bytes, got {}",
@@ -58,24 +60,44 @@ pub fn decode_grpc_frame(data: &[u8]) -> Result<(&[u8], &[u8])> {
 }
 
 pub fn parse_grpc_web_trailers(data: &[u8]) -> Result<(u32, String)> {
-    let trailer_prefix = b"grpc-status: ";
-    let message_prefix = b"grpc-message: ";
+    // Parse gRPC-web binary trailer frames
+    // Each frame: 1 byte compression flag + 4 bytes length + data
+    let mut pos = 0;
+    let mut trailers_text = String::new();
 
+    while pos + 5 <= data.len() {
+        let _compression = data[pos];
+        let length =
+            u32::from_be_bytes([data[pos + 1], data[pos + 2], data[pos + 3], data[pos + 4]])
+                as usize;
+        pos += 5;
+
+        if pos + length > data.len() {
+            break;
+        }
+
+        let frame_data = &data[pos..pos + length];
+        if let Ok(text) = std::str::from_utf8(frame_data) {
+            trailers_text.push_str(text);
+        }
+        pos += length;
+    }
+
+    // Parse the concatenated trailer text
     let mut status_code: Option<u32> = None;
     let mut status_message = String::new();
 
-    for line in data.split(|&b| b == b'\n') {
-        let line = std::str::from_utf8(line).map_err(|e| Error::decoding(e.to_string()))?;
+    for line in trailers_text.split(|c| c == '\n' || c == '\r') {
         let line = line.trim();
-        if line.starts_with("grpc-status: ") {
-            let value = &line[trailer_prefix.len()..];
+        if line.starts_with("grpc-status:") {
+            let value = line["grpc-status:".len()..].trim();
             status_code = Some(
                 value
                     .parse()
                     .map_err(|e| Error::decoding(format!("Failed to parse status code: {}", e)))?,
             );
-        } else if line.starts_with("grpc-message: ") {
-            let value = &line[message_prefix.len()..];
+        } else if line.starts_with("grpc-message:") {
+            let value = line["grpc-message:".len()..].trim();
             status_message = percent_decode(value.as_bytes())
                 .map_err(|e| Error::decoding(format!("Failed to decode message: {}", e)))?;
         }
