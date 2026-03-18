@@ -384,6 +384,7 @@ name = "example-types"
 version = "0.1.0"
 dependencies = [
  "prost",
+ "prost-build",
 ]
 
 [[package]]

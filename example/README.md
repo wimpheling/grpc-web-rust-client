@@ -15,6 +15,16 @@ This is an example project demonstrating a gRPC-Web client using Leptos, Tonic, 
 - Rust (latest stable)
 - Node.js (for building the Leptos frontend with wasm-pack)
 - Docker (for running Envoy proxy)
+- Protobuf compiler: `sudo apt install protobuf-compiler`
+
+## Building
+
+The proto types are generated from `.proto` files. Build them first:
+
+```bash
+# Generate types from proto
+cargo build -p example-types
+```
 
 ## Running the Example
 

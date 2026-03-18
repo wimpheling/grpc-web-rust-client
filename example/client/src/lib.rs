@@ -47,20 +47,19 @@ pub fn App() -> impl IntoView {
 }
 
 async fn call_greeter(name: &str) -> Result<String, String> {
+    use prost::Message;
+    
     let client = Client::new("http://localhost:8081")
         .with_content_type(GrpcWebContentType::Binary);
 
-    let req = HelloRequest::new(name);
+    let req = HelloRequest { name: name.to_string() };
 
-    let response: Vec<u8> = client
-        .unary("hello.Greeter", "SayHello", req)
+    let response = client
+        .unary::<HelloRequest, HelloReply>("hello.Greeter", "SayHello", req)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e: grpc_web_rust::Error| e.to_string())?;
 
-    let reply = HelloReply::decode(response.as_slice())
-        .map_err(|e| e.to_string())?;
-
-    Ok(reply.message)
+    Ok(response.message)
 }
 
 fn main() {
