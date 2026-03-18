@@ -3,6 +3,7 @@ FROM rust:1.75 as builder
 WORKDIR /app
 
 COPY Cargo.toml Cargo.lock ./
+COPY src ./src
 COPY example/server ./example/server
 COPY example/common ./example/common
 COPY example/types ./example/types
