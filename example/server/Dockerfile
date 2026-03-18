@@ -1,5 +1,7 @@
 FROM rust:1.75 as builder
 
+RUN apt-get update && apt-get install -y protobuf-compiler && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 COPY Cargo.toml Cargo.lock ./
