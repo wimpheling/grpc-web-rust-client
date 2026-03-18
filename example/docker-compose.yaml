@@ -12,7 +12,7 @@ services:
 
   server:
     build:
-      context: ./example/server
+      context: ./server
       dockerfile: Dockerfile
     ports:
       - "50051:50051"
