@@ -2,10 +2,13 @@
 /node_modules
 /dist
 *.wasm
-*.js
 *.bg.wasm
-*.wasm.d.ts
-*.rs
 *.d.ts
 .DS_Store
 *.log
+
+# Generated Rust files (but not manually written source files)
+# Use specific patterns to avoid ignoring source files
+**/target
+**/dist
+*.rs.bak
