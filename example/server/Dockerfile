@@ -3,8 +3,9 @@ FROM rust:1.75 as builder
 WORKDIR /app
 
 COPY Cargo.toml Cargo.lock ./
-COPY example-server ./example-server
-COPY example-common ./example-common
+COPY example/server ./example/server
+COPY example/common ./example/common
+COPY example/types ./example/types
 COPY proto ./proto
 
 RUN cargo build --release -p example-server
