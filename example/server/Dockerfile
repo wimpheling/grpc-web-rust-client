@@ -12,7 +12,7 @@ COPY example/types ./example/types
 COPY example/client ./example/client
 COPY example/proto ./example/proto
 
-RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/usr/local/cargo/git --mount=type=cache,target=/app/target cargo build --release -p example-server && mkdir -p /app/dist && cp /app/target/release/server /app/dist/server
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked --mount=type=cache,target=/usr/local/cargo/git --mount=type=cache,target=/app/target cargo build --release -p example-server && mkdir -p /app/dist && cp /app/target/release/server /app/dist/server
 
 FROM debian:bookworm-slim
 
