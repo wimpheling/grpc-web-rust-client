@@ -45,11 +45,13 @@ That's it! Docker Compose will:
 
 The Dockerfiles are optimized with BuildKit cache mounts to speed up repeated builds:
 
-- **Cargo registry cache**: Persisted at `/usr/local/cargo/registry`
+- **Cargo registry cache**: Persisted at `/usr/local/cargo/registry` with `sharing=locked` to prevent concurrent access conflicts
 - **Git dependencies cache**: Persisted at `/usr/local/cargo/git`
 - **Build artifact cache**: Persisted at `/app/target`
 
 These caches are reused between builds, significantly reducing build times after the initial build. The first build will download dependencies and compile from scratch, but subsequent builds will be much faster.
+
+The `sharing=locked` mode ensures that only one build can access the registry cache at a time, preventing race conditions that can occur with concurrent builds in CI environments.
 
 To ensure BuildKit is enabled (required for cache mounts):
 
