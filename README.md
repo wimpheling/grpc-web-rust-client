@@ -9,8 +9,19 @@ A Rust-native gRPC-Web client that runs in the browser (WASM), works with Leptos
 - **gRPC-Web Protocol**: Full support for gRPC-Web transport (binary and text modes)
 - **Server Streaming**: Rust `Stream` interface for server-streaming RPCs
 - **Error Handling**: Proper gRPC status code mapping
+- **Metadata Support**: Custom headers and gRPC metadata
+
+## Prerequisites
+
+- Rust (latest stable)
+- `wasm32-unknown-unknown` target
+- A gRPC-Web compatible server (e.g., Envoy with `grpc_web` filter or `tonic-web`)
 
 ## Usage
+
+This library is designed to run in a browser environment (WASM). It uses `web_sys` for HTTP requests.
+
+### Basic Usage
 
 ```rust
 use grpc_web_rust::prelude::*;
@@ -29,25 +40,27 @@ pub struct HelloResponse {
     pub message: String,
 }
 
-// Create a client
-let client = Client::new("http://localhost:8080");
+// Create a client (must be called in a browser context)
+let client = Client::new("http://localhost:8081");
 
 // Unary call
 let request = HelloRequest { name: "World".to_string() };
 let response: HelloResponse = client
-    .unary("HelloService", "SayHello", request)
+    .unary("hello.Greeter", "SayHello", request)
     .await?;
 
 println!("Response: {}", response.message);
+```
 
-// Server streaming
+### Server Streaming
+
+```rust
 use futures::StreamExt;
 
-let stream_response = client.server_streaming("StreamService", "StreamData", request);
+let request = HelloRequest { name: "World".to_string() };
+let mut stream = client.server_streaming("hello.Greeter", "SayHelloStream", request);
 
-futures::pin_mut!(stream_response);
-
-while let Some(result) = stream_response.next().await {
+while let Some(result) = stream.next().await {
     match result {
         Ok(data) => println!("Received: {:?}", data),
         Err(e) => eprintln!("Error: {}", e),
@@ -55,62 +68,70 @@ while let Some(result) = stream_response.next().await {
 }
 ```
 
-## Running with Envoy
+### Using with Leptos
 
-This client requires a gRPC-Web compatible server (like Envoy with `grpc_web` filter or `tonic-web`).
+See the [example/client](example/client) directory for a complete Leptos WASM application.
 
-Example Envoy configuration:
+```rust
+// example/client/src/lib.rs
+use grpc_web_rust::{Client, GrpcWebContentType};
+use leptos::*;
 
-```yaml
-static_resources:
-  listeners:
-  - name: listener_0
-    address:
-      socket_address:
-        address: 0.0.0.0
-        port_value: 8080
-    filter_chains:
-    - filters:
-      - name: envoy.filters.network.http_connection_manager
-        typed_config:
-          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
-          codec_type: AUTO
-          route_config:
-            name: local_route
-            virtual_hosts:
-            - name: local_service
-              routes:
-              - match:
-                  prefix: "/"
-                route:
-                  cluster: grpc_service
-          http_filters:
-          - name: envoy.filters.http.grpc_web
-          - name: envoy.filters.http.cors
-            typed_config:
-              "@type": type.googleapis.com/envoy.extensions.filters.http.cors.v3.CorsPolicy
-              allow_origin:
-              - "*"
-              allow_methods: GET, PUT, DELETE, POST, OPTIONS
-              allow_headers: keep-alive,user-agent,cache-control,content-type,content-encoding,grpc-message,grpc-accept-encoding
-          - name: envoy.router
-  clusters:
-  - name: grpc_service
-    typed_extension_protocol_options:
-      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
-        "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
-        explicit_http_config:
-          http2_protocol_options: {}
-    load_assignment:
-      cluster_name: grpc_service
-      endpoints:
-      - lb_endpoints:
-        - endpoint:
-            address:
-              socket_address:
-                address: 127.0.0.1
-                port_value: 50051
+#[component]
+pub fn App() -> impl IntoView {
+    let (response, set_response) = create_signal("".to_string());
+
+    let greet = move |_| {
+        wasm_bindgen_futures::spawn_local(async move {
+            let client = Client::new("http://localhost:8081")
+                .with_content_type(GrpcWebContentType::Binary);
+            
+            let req = HelloRequest { name: "World".to_string() };
+            let resp = client.unary("hello.Greeter", "SayHello", req).await;
+            
+            if let Ok(msg) = resp {
+                set_response.set(msg.message);
+            }
+        });
+    };
+
+    view! {
+        <div>
+            <button on:click=greet>"Say Hello"</button>
+            <p>{response}</p>
+        </div>
+    }
+}
 ```
+
+## Configuration
+
+### Content Type
+
+The client supports both binary and text modes for gRPC-Web:
+
+```rust
+let client = Client::new("http://localhost:8081")
+    .with_content_type(GrpcWebContentType::Binary); // or GrpcWebContentType::Text
+```
+
+### Metadata
+
+Add custom headers to requests:
+
+```rust
+use grpc_web_rust::Metadata;
+
+let mut metadata = Metadata::new();
+metadata.insert("authorization", "Bearer token");
+
+let client = Client::new("http://localhost:8081")
+    .with_metadata(metadata);
+```
+
+## Running
+
+This client requires a gRPC-Web compatible server (e.g., Envoy with `grpc_web` filter or `tonic-web`).
 
 ## Building for WASM
 
@@ -118,6 +139,19 @@ static_resources:
 rustup target add wasm32-unknown-unknown
 cargo build --target wasm32-unknown-unknown
 ```
+
+## Example Project
+
+A complete example with Leptos, Tonic gRPC server, and Envoy proxy is available in the [example](example) directory.
+
+To run the example:
+
+```bash
+cd example
+DOCKER_BUILDKIT=1 docker compose up --build
+```
+
+Then open `http://localhost:8082` in your browser.
 
 ## Dependencies
 
@@ -128,3 +162,8 @@ cargo build --target wasm32-unknown-unknown
 - `prost` - Protobuf encoding/decoding
 - `futures` - Async streams
 - `base64` - Base64 encoding for gRPC-Web text mode
+- `async-stream` - Stream implementation for server streaming
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
