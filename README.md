@@ -164,6 +164,10 @@ Then open `http://localhost:8082` in your browser.
 - `base64` - Base64 encoding for gRPC-Web text mode
 - `async-stream` - Stream implementation for server streaming
 
+---
+
+*Vibe coded with [opencode](https://opencode.ai)*
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
