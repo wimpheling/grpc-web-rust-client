@@ -1,5 +1,5 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let proto_path = "../../proto/src/hello.proto";
+    let proto_path = "../proto/hello.proto";
     println!("cargo:rerun-if-changed={}", proto_path);
 
     // Create a placeholder lib.rs if it doesn't exist
@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     prost_build::Config::new()
         .out_dir("src/")
-        .compile_protos(&[proto_path], &["../../proto/src"])
+        .compile_protos(&[proto_path], &["../proto"])
         .unwrap();
 
     Ok(())
