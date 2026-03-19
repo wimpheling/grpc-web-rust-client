@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package arithmetic_progression_streaming;
+
+service ArithmeticProgressionStreaming {
+  rpc CountArithmeticProgression (CountRequest) returns (stream CountResponse);
+}
+
+message CountRequest {
+  int32 start = 1;
+}
+
+message CountResponse {
+  int32 value = 1;
+}

@@ -95,11 +95,21 @@ impl GrpcWebTransport {
         let body = request.encode_to_vec();
         let metadata = merged_metadata;
 
-        let future = async move {
-            send_streaming_request::<R>(base_url, &service, &method, &body, content_type, metadata).await
+        let stream = async_stream::stream! {
+            match send_streaming_request::<R>(base_url, &service, &method, &body, content_type, metadata).await {
+                Ok(messages) => {
+                    // Messages are received in order, so yield them as-is
+                    for msg in messages {
+                        yield Ok(msg);
+                    }
+                }
+                Err(e) => {
+                    yield Err(e);
+                }
+            }
         };
 
-        Box::pin(futures::stream::once(future)) as Pin<Box<dyn Stream<Item = Result<R>> + '_>>
+        Box::pin(stream) as Pin<Box<dyn Stream<Item = Result<R>> + '_>>
     }
 
     async fn send_request(
@@ -221,7 +231,7 @@ async fn send_streaming_request<R>(
     body: &[u8],
     content_type: GrpcWebContentType,
     metadata: Metadata,
-) -> Result<R>
+) -> Result<Vec<R>>
 where
     R: prost::Message + Default + 'static,
 {
@@ -308,20 +318,61 @@ where
         GrpcWebContentType::Binary => full_body,
         GrpcWebContentType::Text => decode_grpc_web_body(&full_body)?,
     };
-    let (message_data, trailing) = split_message_and_trailers(&decoded_body)?;
 
-    if !trailing.is_empty() {
-        let (code, message) = parse_grpc_web_trailers(trailing)?;
-        let status_code = StatusCode::from_u32(code);
-        if status_code != StatusCode::Ok {
-            return Err(Error::grpc(status_code, message));
+    // Parse all frames from the response body
+    let mut messages = Vec::new();
+    let mut pos = 0;
+    let mut has_trailing = false;
+
+    while pos + 5 <= decoded_body.len() {
+        let _compression = decoded_body[pos];
+        let length = u32::from_be_bytes([
+            decoded_body[pos + 1],
+            decoded_body[pos + 2],
+            decoded_body[pos + 3],
+            decoded_body[pos + 4],
+        ]) as usize;
+        
+        // Check if this is a trailing frame (empty data or contains grpc-status)
+        // The frame data starts at pos + 5
+        let frame_start = pos + 5;
+        if frame_start + length > decoded_body.len() {
+            break;
+        }
+        
+        let frame_data = &decoded_body[frame_start..frame_start + length];
+
+        if length == 0 || frame_data.starts_with(b"grpc-status:") {
+            has_trailing = true;
+            // Parse trailing status - pass the entire frame (including header)
+            let (code, message) = parse_grpc_web_trailers(&decoded_body[pos..])?;
+            let status_code = StatusCode::from_u32(code);
+            if status_code != StatusCode::Ok {
+                return Err(Error::grpc(status_code, message));
+            }
+            break;
+        }
+
+        // Decode message frame - frame_data is the raw message bytes
+        let message = R::decode(frame_data).map_err(|e| Error::decoding(e.to_string()))?;
+        messages.push(message);
+
+        pos = frame_start + length;
+    }
+
+    if !has_trailing && pos < decoded_body.len() {
+        // Try to parse trailing data at the end
+        let trailing_data = &decoded_body[pos..];
+        if !trailing_data.is_empty() {
+            let (code, message) = parse_grpc_web_trailers(trailing_data)?;
+            let status_code = StatusCode::from_u32(code);
+            if status_code != StatusCode::Ok {
+                return Err(Error::grpc(status_code, message));
+            }
         }
     }
 
-    let (data, _) = decode_grpc_frame(message_data)?;
-    let response = R::decode(data).map_err(|e| Error::decoding(e.to_string()))?;
-
-    Ok(response)
+    Ok(messages)
 }
 
 fn decode_grpc_web_body(body: &[u8]) -> Result<Vec<u8>> {
