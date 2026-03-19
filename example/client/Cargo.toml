@@ -10,6 +10,8 @@ crate-type = ["cdylib", "rlib"]
 example-types = { path = "../types" }
 grpc-web-rust = { path = "../.." }
 leptos = { version = "0.6", features = ["csr"] }
+leptos_router = { version = "0.6", features = ["csr"] }
+futures = "0.3"
 prost = "0.13"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
