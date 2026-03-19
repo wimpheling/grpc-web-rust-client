@@ -11,6 +11,11 @@ A Rust-native gRPC-Web client that runs in the browser (WASM), works with Leptos
 - **Error Handling**: Proper gRPC status code mapping
 - **Metadata Support**: Custom headers and gRPC metadata
 
+### Future Features
+
+- Error: https://grpc.io/docs/guides/error/
+  - AIP-193 rich error model : https://google.aip.dev/193#error_model
+
 ## Prerequisites
 
 - Rust (latest stable)
@@ -85,10 +90,10 @@ pub fn App() -> impl IntoView {
         wasm_bindgen_futures::spawn_local(async move {
             let client = Client::new("http://localhost:8081")
                 .with_content_type(GrpcWebContentType::Binary);
-            
+
             let req = HelloRequest { name: "World".to_string() };
             let resp = client.unary("hello.Greeter", "SayHello", req).await;
-            
+
             if let Ok(msg) = resp {
                 set_response.set(msg.message);
             }
@@ -166,7 +171,7 @@ Then open `http://localhost:8082` in your browser.
 
 ---
 
-*Vibe coded with [opencode](https://opencode.ai)*
+_Vibe coded with [opencode](https://opencode.ai)_
 
 ## License
 
